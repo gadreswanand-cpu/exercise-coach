@@ -8,7 +8,7 @@
 
   /* ---------------- storage ---------------- */
   const KEY = "exercise-coach-v1";
-  const store = Object.assign({ log: {}, off: {}, voice: true, beep: true }, JSON.parse(localStorage.getItem(KEY) || "{}"));
+  const store = Object.assign({ log: {}, off: {}, dose: {}, voice: true, beep: true }, JSON.parse(localStorage.getItem(KEY) || "{}"));
   const save = () => localStorage.setItem(KEY, JSON.stringify(store));
   const dayKey = (d = new Date()) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   const today = () => store.log[dayKey()] || {};
@@ -30,11 +30,18 @@
   }
 
   /* ---------------- helpers ---------------- */
+  // the exercise with any reps/sets/hold changes made in the app
+  const eff = ex => Object.assign({}, ex, (store.dose || {})[ex.id] || {});
+  function phasesOf(ex) {
+    return ex.phases || (ex.sides ? [{ name: "1st side" }, { name: "2nd side", mirror: true, say: "Switch to the other side" }] : [{ name: "" }]);
+  }
+  const sidesText = ex => ex.sidesText || (ex.sides ? "each side" : "");
   function dose(ex) {
+    ex = eff(ex);
     const parts = [];
     parts.push(ex.sets > 1 ? `${ex.sets} × ${ex.reps} reps` : `${ex.reps} reps`);
     if (ex.holdSec) parts.push(`hold ${ex.holdSec}s`);
-    if (ex.sides) parts.push("each side");
+    if (sidesText(ex)) parts.push(sidesText(ex));
     return parts.join(" · ");
   }
   let figures = [];
@@ -93,7 +100,7 @@
         ${AREAS.map(a => {
           const p = planFor(a.id), d = p.filter(e => isDone(e.id)).length;
           return `<a class="area-card ${d === p.length && p.length ? "complete" : ""}" href="#/area/${a.id}">
-            <div class="area-fig" data-ex="${esc((p.find(e => e.areas[0] === a.id) || p[0] || EXERCISES.find(e => e.areas.includes(a.id))).id)}"></div>
+            <div class="area-fig" data-ex="${esc(((a.thumb && BY_ID[a.thumb]) || p.find(e => e.areas[0] === a.id) || p[0] || EXERCISES.find(e => e.areas.includes(a.id))).id)}"></div>
             <div class="area-txt"><h3>${esc(a.name)}</h3><p class="muted">${esc(a.blurb)}</p>
             <div class="bar"><span style="width:${p.length ? (100 * d) / p.length : 0}%"></span></div>
             <p class="small">${d} of ${p.length} done today</p></div></a>`;
@@ -114,13 +121,23 @@
   }
 
   function detailHTML(ex, area) {
+    ex = eff(ex);
     const d = isDone(ex.id);
     return `<article class="detail">
       <div class="demo" id="demo"><button class="demo-btn" id="playpause" aria-label="Pause">❚❚</button>
         ${ex.sides ? '<button class="demo-btn side-btn" id="mirror" aria-label="Show other side">⇄</button>' : ""}</div>
       <h1>${esc(ex.name)}</h1>
       <div class="chips"><span class="chip">${ex.sets > 1 ? ex.sets + " sets" : "1 set"}</span><span class="chip">${ex.reps} reps</span>
-        ${ex.holdSec ? `<span class="chip">Hold ${ex.holdSec}s</span>` : ""}${ex.sides ? '<span class="chip">Each side</span>' : ""}</div>
+        ${ex.holdSec ? `<span class="chip">Hold ${ex.holdSec}s</span>` : ""}${sidesText(ex) ? `<span class="chip">${esc(sidesText(ex))}</span>` : ""}</div>
+      ${ex.doseNote ? `<p class="small muted">${esc(ex.doseNote)}</p>` : ""}
+      <details class="dose-edit"><summary>Change reps, sets or hold time</summary>
+        <div class="dose-grid">
+          <label>Reps<input type="number" min="1" max="100" id="dReps" value="${ex.reps}"></label>
+          <label>Sets<input type="number" min="1" max="10" id="dSets" value="${ex.sets}"></label>
+          <label>Hold (sec)<input type="number" min="0" max="300" id="dHold" value="${ex.holdSec || 0}"></label>
+        </div>
+        <div class="actions"><button class="btn primary" id="dSave">Save</button><button class="btn" id="dReset">Reset to sheet</button></div>
+      </details>
       <ol class="steps">${ex.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
       ${ex.caution ? `<p class="caution">⚠️ ${esc(ex.caution)}</p>` : ""}
       <div class="actions">
@@ -138,6 +155,12 @@
     else pp.onclick = () => { if (f.paused) { f.play(); pp.textContent = "❚❚"; pp.setAttribute("aria-label", "Pause"); } else { f.pause(); pp.textContent = "▶"; pp.setAttribute("aria-label", "Play"); } };
     const m = $("#mirror");
     if (m) m.onclick = () => { if (f) f.setMirror(!f.mirror); };
+    const num = (id, min) => Math.max(min, parseInt($(id).value, 10) || min);
+    $("#dSave").onclick = () => {
+      store.dose[ex.id] = { reps: num("#dReps", 1), sets: num("#dSets", 1), holdSec: num("#dHold", 0) };
+      save(); toast("Saved"); route();
+    };
+    $("#dReset").onclick = () => { delete store.dose[ex.id]; save(); toast("Back to the original"); route(); };
     $("#toggleDone").onclick = () => {
       if (isDone(ex.id)) { unmark(ex.id); toast("Unmarked"); } else { markDone(ex.id); toast("Nice work! Marked as done"); }
       route();
@@ -208,10 +231,11 @@
 
   function runExercise() {
     clearFigures();
-    const ex = session.queue[session.i];
+    const ex = eff(session.queue[session.i]);
     const st = { set: 1, side: 1, rep: 0, paused: false };
     session.st = st;
-    const totalSides = ex.sides ? 2 : 1;
+    const phases = phasesOf(ex), totalSides = phases.length;
+    const applyPhase = () => { const ph = phases[st.side - 1]; if (fig) { fig.setMirror(!!ph.mirror); fig.setReverse(!!ph.reverse); } };
     view.innerHTML = `
       <div class="guided">
         <header class="g-top">
@@ -228,7 +252,7 @@
             <div class="g-stats">
               <div><b id="gRep">0</b><span>of ${ex.reps} reps</span></div>
               <div><b id="gSet">1</b><span>of ${ex.sets} set${ex.sets > 1 ? "s" : ""}</span></div>
-              ${ex.sides ? '<div><b id="gSide">1st</b><span>side</span></div>' : ""}
+              ${totalSides > 1 ? `<div><b id="gSide" class="g-phase">${esc(phases[0].name)}</b><span>${st.side} of ${totalSides}</span></div>` : ""}
             </div>
             <div class="actions">
               <button class="btn" id="gPause">❚❚ Pause</button>
@@ -244,21 +268,21 @@
     const say = t => { if (t && t !== lastSpoken) { lastSpoken = t; speak(t); } };
     const update = () => {
       $("#gRep").textContent = st.rep; $("#gSet").textContent = st.set;
-      if ($("#gSide")) $("#gSide").textContent = st.side === 1 ? "1st" : "2nd";
+      if ($("#gSide")) { $("#gSide").textContent = phases[st.side - 1].name; $("#gSide").nextElementSibling.textContent = st.side + " of " + totalSides; }
     };
     let fig = null;
     function onRep() {
       st.rep++; update(); beep(); speak(String(st.rep)); lastSpoken = "";
       if (st.rep < ex.reps) return;
       st.rep = 0;
-      if (st.side < totalSides) { st.side++; update(); between("Switch sides", 6, () => fig && fig.setMirror(true)); return; }
-      if (st.set < ex.sets) { st.set++; st.side = 1; update(); between("Rest", 20, () => fig && fig.setMirror(false)); return; }
+      if (st.side < totalSides) { st.side++; update(); const ph = phases[st.side - 1]; between(ph.say || "Switch", 6, applyPhase); return; }
+      if (st.set < ex.sets) { st.set++; st.side = 1; update(); between("Rest", 20, applyPhase); return; }
       finish();
     }
     function between(label, secs, then) {
       if (fig) fig.pause();
       st.inBetween = true;
-      say(label === "Rest" ? `Rest for ${secs} seconds` : "Switch to the other side");
+      say(label === "Rest" ? `Rest for ${secs} seconds` : label);
       let n = secs; cue.textContent = label; count.textContent = n;
       clearInterval(session.timer);
       session.timer = setInterval(() => {

@@ -13,8 +13,11 @@
  *   neck        shoulders -> head (180 = upright)
  *   ua, fa      near upper arm / forearm        ua2, fa2  far arm
  *   th, sh, ft  near thigh / shin / foot        th2, sh2, ft2  far leg
+ *   sx, sy      move the shoulder joint (shoulder rolls)
+ *   fx, fy / fx2, fy2   place the ankle at a point (knee bends to fit)
+ *   wx, wy / wx2, wy2   place the hand at a point (elbow bends to fit)
  * Front view keys (view: "front"):
- *   tilt (head side tilt, + = to the person's left / screen right),
+ *   tilt (head side tilt, + = to the person's left / screen right), nod (0..1 chin down),
  *   turn (-1..1 head rotation), shrug (0..1), armL, armR, elbowL, elbowR,
  *   legL, legR, kneeL, kneeR, y
  */
@@ -24,12 +27,12 @@
   const GROUND = 175; // where joints rest when "ground" is on (floor line is at 180)
 
   const SIDE_DEFAULT = {
-    x: 100, y: 105, torso: 180, bend: 0, neck: 180, nod: 0,
+    x: 100, y: 105, torso: 180, bend: 0, neck: 180, nod: 0, sx: 0, sy: 0,
     ua: 0, fa: 0, ua2: 0, fa2: 0,
     th: 0, sh: 0, ft: 90, th2: 0, sh2: 0, ft2: 90,
   };
   const FRONT_DEFAULT = {
-    x: 100, y: 108, tilt: 0, turn: 0, shrug: 0,
+    x: 100, y: 108, tilt: 0, turn: 0, nod: 0, shrug: 0,
     armL: 8, armR: 8, elbowL: 0, elbowR: 0, legL: 4, legR: 4, kneeL: 0, kneeR: 0,
   };
 
@@ -71,13 +74,14 @@
       if (tx != null && !isNaN(tx)) return ik(start, [tx, ty], l1, l2, sign);
       const j = add(start, a1, l1); return [j, add(j, a2, l2)];
     };
-    const [elb, wri] = limb(sho, p.ua, L.ua, p.fa, L.fa, p.wx, p.wy, p.esign || -1);
-    const [elb2, wri2] = limb(sho, p.ua2, L.ua, p.fa2, L.fa, p.wx2, p.wy2, p.esign || -1);
+    const arm = [sho[0] + (p.sx || 0), sho[1] + (p.sy || 0)]; // shoulder joint (moves for shoulder rolls)
+    const [elb, wri] = limb(arm, p.ua, L.ua, p.fa, L.fa, p.wx, p.wy, p.esign || -1);
+    const [elb2, wri2] = limb(arm, p.ua2, L.ua, p.fa2, L.fa, p.wx2, p.wy2, p.esign || -1);
     const [kne, ank] = limb(hip, p.th, L.th, p.sh, L.sh, p.fx, p.fy, p.ksign || 1);
     const toe = add(ank, p.ft, L.ft);
     const [kne2, ank2] = limb(hip, p.th2, L.th, p.sh2, L.sh, p.fx2, p.fy2, p.ksign || 1);
     const toe2 = add(ank2, p.ft2, L.ft);
-    return { hip, sho, ctrl, headC, neckEnd, elb, wri, elb2, wri2, kne, ank, toe, kne2, ank2, toe2 };
+    return { hip, sho, arm, ctrl, headC, neckEnd, elb, wri, elb2, wri2, kne, ank, toe, kne2, ank2, toe2 };
   }
 
   function groundPose(p) {
@@ -100,10 +104,10 @@
 
   function drawSide(parts, p) {
     const j = sideJoints(p);
-    parts.arm2.setAttribute("points", pts([j.sho, j.elb2, j.wri2]));
+    parts.arm2.setAttribute("points", pts([j.arm, j.elb2, j.wri2]));
     parts.leg2.setAttribute("points", pts([j.hip, j.kne2, j.ank2, j.toe2]));
     parts.leg.setAttribute("points", pts([j.hip, j.kne, j.ank, j.toe]));
-    parts.arm.setAttribute("points", pts([j.sho, j.elb, j.wri]));
+    parts.arm.setAttribute("points", pts([j.arm, j.elb, j.wri]));
     parts.spine.setAttribute("d", `M${j.hip[0].toFixed(1)},${j.hip[1].toFixed(1)} Q${j.ctrl[0].toFixed(1)},${j.ctrl[1].toFixed(1)} ${j.sho[0].toFixed(1)},${j.sho[1].toFixed(1)}`);
     parts.neck.setAttribute("x1", j.sho[0]); parts.neck.setAttribute("y1", j.sho[1]);
     parts.neck.setAttribute("x2", j.neckEnd[0]); parts.neck.setAttribute("y2", j.neckEnd[1]);
@@ -143,14 +147,14 @@
     parts.legR.setAttribute("points", pts(limb(hipR, -p.legR, L.th, -p.legR + p.kneeR, L.sh)));
     const headA = 180 + p.tilt; // tilt rotates the head about the neck base
     const nEnd = add(neckBase, headA, L.neck);
-    const hc = add(neckBase, headA, L.neck + L.head + 1);
+    const hc = add(neckBase, headA, L.neck + L.head + 1 - p.nod * 6); // nod: chin drops toward the chest
     parts.neck.setAttribute("x1", neckBase[0]); parts.neck.setAttribute("y1", neckBase[1]);
     parts.neck.setAttribute("x2", nEnd[0]); parts.neck.setAttribute("y2", nEnd[1]);
     parts.head.setAttribute("cx", hc[0]); parts.head.setAttribute("cy", hc[1]);
     // face features slide sideways with "turn" and rotate with "tilt"
     const across = headA - 90, up = headA;
     const shift = p.turn * 6;
-    const f = (dx, dy) => add(add(hc, across, dx + shift), up, dy);
+    const f = (dx, dy) => add(add(hc, across, dx + shift), up, dy - p.nod * 5);
     const eL = f(4, 2), eR = f(-4, 2), n1 = f(0, 1), n2 = f(p.turn * 3, -3);
     parts.eyeL.setAttribute("cx", eL[0]); parts.eyeL.setAttribute("cy", eL[1]);
     parts.eyeR.setAttribute("cx", eR[0]); parts.eyeR.setAttribute("cy", eR[1]);
@@ -172,6 +176,10 @@
         el("path", { d: "M136,141 H174 M140,141 V180 M170,141 V180 M140,141 V80", class: "chair" }, g);
       }
       if (pr === "wall") el("line", { x1: 46, y1: 20, x2: 46, y2: 180, class: "wall" }, g);
+      if (pr === "wall-front") el("line", { x1: 158, y1: 20, x2: 158, y2: 180, class: "wall" }, g);
+      if (pr === "step") el("rect", { x: 112, y: 160, width: 60, height: 20, rx: 2, class: "step" }, g);
+      if (pr === "towel") el("rect", { x: 133, y: 168, width: 16, height: 10, rx: 5, class: "towel" }, g);
+      if (pr === "bolster") el("rect", { x: 128, y: 160, width: 24, height: 18, rx: 9, class: "towel" }, g);
       if (pr === "pillow") el("rect", { x: 22, y: 168, width: 26, height: 10, rx: 5, class: "mat" }, g);
     });
   }
@@ -199,6 +207,7 @@
         const p = Object.assign({}, base, f.p || {});
         return ex.ground && !this.front ? groundPose(p) : p;
       });
+      this.frames = ex.frames.slice();
       this.fit();
       this.i = 0; this.t0 = null; this.cycles = 0; this.paused = false;
       this.setMirror(!!opts.mirror);
@@ -215,6 +224,8 @@
       const props = this.ex.props || [];
       if (props.includes("chair")) { inc(54, 86); inc(106, 182); }
       if (props.includes("chair-back")) { inc(134, 78); inc(176, 182); }
+      if (props.includes("step")) { inc(110, 158); inc(174, 182); }
+      if (props.includes("wall-front")) inc(162, 60);
       inc(x0, 184);
       const pad = 10, size = Math.max(x1 - x0, y1 - y0, 110) + 2 * pad;
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
@@ -223,6 +234,14 @@
       el("rect", { x: -100, y: 181.5, width: 400, height: 200, class: "below" }, this.svg.firstChild);
     }
     setMirror(m) { this.mirror = m; this.svg.classList.toggle("mirror", m); }
+    /* play the movement the other way round (e.g. circles in the other direction) */
+    setReverse(r) {
+      if (!!r === !!this.reversed) return;
+      this.reversed = !!r;
+      const rev = a => [a[0]].concat(a.slice(1).reverse());
+      this.frames = rev(this.frames); this.poses = rev(this.poses);
+      this.restart();
+    }
     holdMs(f) {
       if (f.hold === "H") return (this.opts.hold != null ? this.opts.hold : Math.min(this.ex.holdSec || 1, 1.5)) * 1000;
       return (f.hold || 0) * 1000;
@@ -237,13 +256,18 @@
       if (this.paused || !this.svg.isConnected) { live.delete(this); return; }
       const n = this.poses.length;
       const next = (this.i + 1) % n;
-      const f = this.ex.frames[next];
+      const f = this.frames[next];
       if (this.t0 == null) this.t0 = now;
       const move = this.moveMs(f), hold = this.holdMs(f);
       const t = now - this.t0;
       if (t < move) {
-        const k = ease(t / move), a = this.poses[this.i], b = this.poses[next], p = {};
-        for (const key in b) p[key] = a[key] == null || b[key] == null ? b[key] : a[key] + (b[key] - a[key]) * k;
+        const k = this.ex.linear ? t / move : ease(t / move), a = this.poses[this.i], b = this.poses[next], p = {};
+        const wrap = this.ex.wrap || [];
+        for (const key in b) {
+          if (a[key] == null || b[key] == null) { p[key] = b[key]; continue; }
+          const d = wrap.includes(key) ? ((((b[key] - a[key]) % 360) + 540) % 360) - 180 : b[key] - a[key];
+          p[key] = a[key] + d * k;
+        }
         this.render(p);
         if (!this._moving) { this._moving = true; if (this.opts.onMove) this.opts.onMove(f, next); }
       } else if (t < move + hold) {

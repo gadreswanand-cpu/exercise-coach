@@ -123,6 +123,9 @@ body.in-guided main { padding-bottom: 24px; }
 .fig-near .fig-nose { stroke-width: 3.5; }
 .floor { stroke: var(--line); stroke-width: 2; }
 .mat { fill: var(--mat); }
+.step { fill: var(--prop); opacity: .55; }
+.towel { fill: #f59e0b; opacity: .8; }
+.wall { stroke: var(--prop); stroke-width: 5; }
 .chair { fill: none; stroke: var(--prop); stroke-width: 4.5; stroke-linecap: round; }
 
 /* ---------- guided ---------- */
@@ -182,3 +185,11 @@ body.in-guided main { padding-bottom: 24px; }
   .split, .g-main { grid-template-columns: env(viewport-segment-width 0 0, 1fr) env(viewport-segment-width 1 0, 1fr); column-gap: calc(env(viewport-segment-left 1 0, 0px) - env(viewport-segment-right 0 0, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { .ring-fg { transition: none; } }
+
+/* dose editor */
+.dose-edit { margin: 8px 0; }
+.dose-edit summary { cursor: pointer; color: var(--brand-2); font-weight: 600; padding: 6px 0; }
+.dose-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.dose-grid label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
+.dose-grid input { font: 600 1.1rem system-ui, sans-serif; padding: 8px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); width: 100%; }
+.g-phase { font-size: 1rem !important; line-height: 1.6; }
