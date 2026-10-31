@@ -193,3 +193,8 @@ body.in-guided main { padding-bottom: 24px; }
 .dose-grid label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
 .dose-grid input { font: 600 1.1rem system-ui, sans-serif; padding: 8px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); width: 100%; }
 .g-phase { font-size: 1rem !important; line-height: 1.6; }
+
+/* light weights / water bottles in the hands */
+.fig-weight { display: none; fill: #f59e0b; stroke: none !important; }
+.weights .fig-weight { display: inline; }
+.fig-weight.far { opacity: .55; }

@@ -1,5 +1,5 @@
 // Offline support. Bump VERSION whenever files change so phones pick up the update.
-const VERSION = "ec-v2";
+const VERSION = "ec-v3";
 const FILES = ["./", "index.html", "styles.css", "app.js", "figure.js", "exercises.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES))); self.skipWaiting(); });

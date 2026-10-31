@@ -30,10 +30,12 @@ const AREAS = [
   { id: "neck", name: "Neck", icon: "neck", blurb: "Neck and shoulder exercises", thumb: "neck-ear-shoulder" },
   { id: "legs", name: "Knees & Legs", icon: "knee", blurb: "Knee support and thigh strength", thumb: "knee-extension" },
   { id: "back", name: "Lower Back", icon: "back", blurb: "Waist and lower back care", thumb: "bridge" },
+  { id: "arms", name: "Arms & Shoulders", icon: "arms", blurb: "Build arm and shoulder muscle", thumb: "shoulder-press" },
 ];
 
 const SHEET = "Hold time from your exercise sheet.";
 const SUGGESTED = "Your sheet doesn't give a number, so this is a common starting dose. Change it if your doctor said otherwise.";
+const ARMS = "Standard strengthening dose: 2 sets of 10. Add 1 to 2 reps a week as it gets easier, keeping the weight light.";
 const BACK_SHEET = "From your lower back sheet: hold 30 seconds, timed by the watch, only as far as is comfortable.";
 
 // Shared starting poses
@@ -506,6 +508,118 @@ const EXERCISES = [
     frames: [
       { p: { torso: 180, neck: 180, nod: 0, wx: 74, wy: 138, wx2: 72, wy2: 138, esign: -1 }, t: 1.4, label: "Kneel up" },
       { p: {}, t: 1.6, hold: "H", label: "Hands down, back flat" },
+    ],
+  },
+
+  /* ------------------------- ARMS & SHOULDERS -------------------------
+   * Standard strengthening exercises (not from the doctor's sheets).
+   * Keep weights light: water bottles or 0.5 to 1 kg dumbbells. */
+  {
+    id: "bicep-curl", areas: ["arms"], name: "Bicep curls",
+    reps: 10, sets: 2, holdSec: 1, sides: false, doseNote: ARMS, weights: true,
+    steps: [
+      "Stand tall holding a light weight or water bottle in each hand, palms facing forward.",
+      "Keep your elbows tucked in at your sides.",
+      "Bend your elbows to bring the weights up toward your shoulders.",
+      "Pause, then lower slowly over 2 to 3 seconds.",
+    ],
+    caution: "Keep the weight light. Don't swing your body or lean back.",
+    view: "side", base: Object.assign({}, STAND, { ua: 2, fa: 4, ua2: 4, fa2: 6 }), props: [],
+    frames: [
+      { p: {}, t: 1.8, label: "Lower slowly" },
+      { p: { fa: 155, fa2: 152, ua: 6, ua2: 8 }, t: 1.2, hold: "H", label: "Curl up" },
+    ],
+  },
+  {
+    id: "wall-pushup", areas: ["arms"], name: "Wall push-ups",
+    reps: 10, sets: 2, holdSec: 0, sides: false, doseNote: ARMS,
+    steps: [
+      "Stand an arm's length from a wall, feet hip-width apart.",
+      "Place your palms flat on the wall at shoulder height.",
+      "Keeping your body straight, bend your elbows and bring your chest toward the wall.",
+      "Push back out until your arms are straight.",
+    ],
+    caution: "Keep your back and neck in a straight line; don't let your hips sag.",
+    view: "side", base: { x: 100, y: 107, torso: 173, neck: 172, th: -7, sh: -7, th2: -8, sh2: -8, ft: 95, ft2: 95, wx: 154, wy: 60, wx2: 153, wy2: 62, esign: -1 }, props: ["wall-front"],
+    frames: [
+      { p: {}, t: 1.4, label: "Push back out" },
+      { p: { x: 110, y: 110, torso: 164, neck: 164, th: -15, sh: -15, th2: -16, sh2: -16 }, t: 1.6, hold: 0.5, label: "Chest toward the wall" },
+    ],
+  },
+  {
+    id: "shoulder-press", areas: ["arms"], name: "Overhead press",
+    reps: 10, sets: 2, holdSec: 1, sides: false, doseNote: ARMS, weights: true,
+    steps: [
+      "Sit or stand tall with a light weight in each hand at shoulder height, elbows bent.",
+      "Press both weights straight up above your head.",
+      "Pause, then lower slowly back to shoulder height.",
+    ],
+    caution: "Don't arch your lower back. Skip it if it hurts your neck or shoulder.",
+    view: "front", base: { armL: 88, armR: 88, elbowL: 88, elbowR: 88 }, props: [], weights: true,
+    frames: [
+      { p: {}, t: 1.8, label: "Lower slowly" },
+      { p: { armL: 165, armR: 165, elbowL: 12, elbowR: 12 }, t: 1.3, hold: "H", label: "Press up" },
+    ],
+  },
+  {
+    id: "lateral-raise", areas: ["arms"], name: "Side arm raises",
+    reps: 10, sets: 2, holdSec: 1, sides: false, doseNote: ARMS, weights: true,
+    steps: [
+      "Stand tall with a light weight in each hand, arms by your sides.",
+      "With a slight bend in the elbows, raise both arms out to the sides up to shoulder height.",
+      "Pause, then lower slowly.",
+    ],
+    caution: "Stop at shoulder height. Keep your shoulders down away from your ears.",
+    view: "front", base: { armL: 8, armR: 8, elbowL: 6, elbowR: 6 }, props: [],
+    frames: [
+      { p: {}, t: 1.8, label: "Lower slowly" },
+      { p: { armL: 86, armR: 86, elbowL: 8, elbowR: 8 }, t: 1.3, hold: "H", label: "Arms out to the sides" },
+    ],
+  },
+  {
+    id: "front-raise", areas: ["arms"], name: "Front arm raises",
+    reps: 10, sets: 2, holdSec: 1, sides: false, doseNote: ARMS, weights: true,
+    steps: [
+      "Stand tall with a light weight in each hand, palms facing your thighs.",
+      "Keeping your arms straight, raise them in front of you to shoulder height.",
+      "Pause, then lower slowly.",
+    ],
+    caution: "Don't lean back or swing. Keep the movement slow.",
+    view: "side", base: STAND, props: [],
+    frames: [
+      { p: {}, t: 1.8, label: "Lower slowly" },
+      { p: { ua: 88, fa: 88, ua2: 86, fa2: 86 }, t: 1.3, hold: "H", label: "Raise your arms" },
+    ],
+  },
+  {
+    id: "triceps-extension", areas: ["arms"], name: "Overhead triceps stretch-and-lift",
+    reps: 10, sets: 2, holdSec: 1, sides: false, doseNote: ARMS, weights: true,
+    steps: [
+      "Sit or stand tall holding one light weight with both hands above your head.",
+      "Keeping your upper arms close to your ears, bend your elbows to lower the weight behind your head.",
+      "Straighten your arms to lift it back up.",
+    ],
+    caution: "Use a very light weight. Keep your elbows pointing up and your back straight.",
+    view: "side", base: Object.assign({}, STAND, { ua: 174, ua2: 172, fa: -185, fa2: -183 }), props: [],
+    frames: [
+      { p: {}, t: 1.3, hold: 0.4, label: "Straighten your arms" },
+      { p: { fa: -25, fa2: -23 }, t: 1.8, label: "Lower behind your head" },
+    ],
+  },
+  {
+    id: "band-row", areas: ["arms"], name: "Band rows",
+    reps: 10, sets: 2, holdSec: 2, sides: false, doseNote: ARMS,
+    steps: [
+      "Tie a resistance band (or a long towel) to a door handle and hold one end in each hand.",
+      "Stand tall with your arms straight out in front of you.",
+      "Pull your elbows back past your sides, squeezing your shoulder blades together.",
+      "Hold, then slowly let your arms go forward again.",
+    ],
+    caution: "Keep your shoulders down and your back straight; don't lean back.",
+    view: "side", base: Object.assign({}, STAND, { wx: 146, wy: 76, wx2: 145, wy2: 78 }), props: [],
+    frames: [
+      { p: {}, t: 1.6, label: "Arms forward slowly" },
+      { p: { wx: 112, wy: 80, wx2: 111, wy2: 82, sx: -4 }, t: 1.2, hold: "H", label: "Pull elbows back" },
     ],
   },
 ];

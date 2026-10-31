@@ -99,6 +99,8 @@
       neck: el("line", {}, near), head: el("circle", { r: L.head, class: "fig-head" }, near),
       eye: el("circle", { r: 1.6, class: "fig-eye" }, near), nose: el("line", { class: "fig-nose" }, near),
       arm: el("polyline", {}, near),
+      w2: el("rect", { width: 9, height: 13, rx: 3, class: "fig-weight far" }, far),
+      w: el("rect", { width: 9, height: 13, rx: 3, class: "fig-weight" }, near),
     };
   }
 
@@ -108,6 +110,8 @@
     parts.leg2.setAttribute("points", pts([j.hip, j.kne2, j.ank2, j.toe2]));
     parts.leg.setAttribute("points", pts([j.hip, j.kne, j.ank, j.toe]));
     parts.arm.setAttribute("points", pts([j.arm, j.elb, j.wri]));
+    parts.w.setAttribute("x", j.wri[0] - 4.5); parts.w.setAttribute("y", j.wri[1] - 6.5);
+    parts.w2.setAttribute("x", j.wri2[0] - 4.5); parts.w2.setAttribute("y", j.wri2[1] - 6.5);
     parts.spine.setAttribute("d", `M${j.hip[0].toFixed(1)},${j.hip[1].toFixed(1)} Q${j.ctrl[0].toFixed(1)},${j.ctrl[1].toFixed(1)} ${j.sho[0].toFixed(1)},${j.sho[1].toFixed(1)}`);
     parts.neck.setAttribute("x1", j.sho[0]); parts.neck.setAttribute("y1", j.sho[1]);
     parts.neck.setAttribute("x2", j.neckEnd[0]); parts.neck.setAttribute("y2", j.neckEnd[1]);
@@ -130,6 +134,8 @@
       neck: el("line", {}, g), head: el("circle", { r: L.head + 1, class: "fig-head" }, g),
       eyeL: el("circle", { r: 1.6, class: "fig-eye" }, g), eyeR: el("circle", { r: 1.6, class: "fig-eye" }, g),
       nose: el("line", { class: "fig-nose" }, g),
+      wL: el("rect", { width: 9, height: 13, rx: 3, class: "fig-weight" }, g),
+      wR: el("rect", { width: 9, height: 13, rx: 3, class: "fig-weight" }, g),
     };
   }
 
@@ -142,7 +148,10 @@
     parts.body.setAttribute("points", pts([hipR, hipL, hip, neckBase, shL, neckBase, shR]));
     const limb = (s, a, l1, b, l2) => { const j = add(s, a, l1); return [s, j, add(j, b, l2)]; };
     parts.armL.setAttribute("points", pts(limb(shL, p.armL, L.ua, p.armL + p.elbowL, L.fa)));
-    parts.armR.setAttribute("points", pts(limb(shR, -p.armR, L.ua, -p.armR - p.elbowR, L.fa)));
+    const aL = limb(shL, p.armL, L.ua, p.armL + p.elbowL, L.fa), aR = limb(shR, -p.armR, L.ua, -p.armR - p.elbowR, L.fa);
+    parts.armR.setAttribute("points", pts(aR));
+    parts.wL.setAttribute("x", aL[2][0] - 4.5); parts.wL.setAttribute("y", aL[2][1] - 6.5);
+    parts.wR.setAttribute("x", aR[2][0] - 4.5); parts.wR.setAttribute("y", aR[2][1] - 6.5);
     parts.legL.setAttribute("points", pts(limb(hipL, p.legL, L.th, p.legL - p.kneeL, L.sh)));
     parts.legR.setAttribute("points", pts(limb(hipR, -p.legR, L.th, -p.legR + p.kneeR, L.sh)));
     const headA = 180 + p.tilt; // tilt rotates the head about the neck base
@@ -198,7 +207,7 @@
                onFrame(frame, index), onCycle(count), mirror } */
     constructor(container, ex, opts = {}) {
       this.ex = ex; this.opts = opts;
-      this.svg = el("svg", { viewBox: "0 0 200 200", class: "figure", role: "img", "aria-label": ex.name + " animation" });
+      this.svg = el("svg", { viewBox: "0 0 200 200", class: "figure" + (ex.weights ? " weights" : ""), role: "img", "aria-label": ex.name + " animation" });
       drawProps(this.svg, ex.props);
       this.front = ex.view === "front";
       this.parts = this.front ? buildFront(this.svg) : buildSide(this.svg);
