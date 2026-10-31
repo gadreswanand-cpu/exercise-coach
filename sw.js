@@ -1,8 +1,8 @@
 // Offline support. Bump VERSION whenever files change so phones pick up the update.
-const VERSION = "ec-v3";
+const VERSION = "ec-v4";
 const FILES = ["./", "index.html", "styles.css", "app.js", "figure.js", "exercises.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png"];
-self.addEventListener("install", e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES))); self.skipWaiting(); });
+self.addEventListener("install", e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES.map(f => new Request(f, { cache: "reload" }))))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k)))));
   self.clients.claim();
@@ -11,7 +11,7 @@ self.addEventListener("activate", e => {
 // Exercise media (GIFs/videos) are saved the first time they are viewed.
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin) return;
-  e.respondWith(fetch(e.request).then(r => {
+  e.respondWith(fetch(e.request, { cache: "no-cache" }).then(r => { // always ask the server for the newest copy
     if (r.ok) { const copy = r.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); }
     return r;
   }).catch(() => caches.match(e.request, { ignoreSearch: true })));

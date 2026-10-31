@@ -417,5 +417,13 @@
   document.addEventListener("visibilitychange", () => { if (session && document.visibilityState === "visible") keepAwake(true); });
   route();
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+  if ("serviceWorker" in navigator) {
+    // when a newer version of the app arrives, reload once so it shows straight away
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (hadController && !reloaded && !session) { reloaded = true; location.reload(); }
+    });
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(r => r.update()).catch(() => {});
+  }
 })();
