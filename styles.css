@@ -198,3 +198,44 @@ body.in-guided main { padding-bottom: 24px; }
 .fig-weight { display: none; fill: #f59e0b; stroke: none !important; }
 .weights .fig-weight { display: inline; }
 .fig-weight.far { opacity: .55; }
+
+/* ---------- walking ---------- */
+.walk-card { display: flex; gap: 12px; align-items: center; background: var(--card); border-radius: var(--radius); padding: 10px 14px 10px 10px; box-shadow: var(--shadow); border: 2px solid transparent; margin-top: 14px; }
+.walk-card.complete { border-color: var(--brand-2); }
+.walk-fig { width: 104px; height: 104px; flex: none; background: var(--bg); border-radius: 14px; overflow: hidden; }
+.live { color: var(--brand-2); }
+.walk-main { display: grid; gap: 14px; }
+.walk-demo { max-height: 38vh; width: 100%; max-width: 38vh; }
+.walk-clock { font: 800 3.4rem/1 system-ui, sans-serif; font-variant-numeric: tabular-nums; text-align: center; margin-top: 4px; }
+.walk-side .cue { text-align: center; font-size: 1.15rem; }
+.walk-btns { justify-content: center; }
+.big-btn { min-height: 56px; min-width: 140px; font-size: 1.1rem; }
+.bar.big { height: 14px; border-radius: 7px; }
+.bar.big span { border-radius: 7px; transition: width .4s; }
+.walk-today p { text-align: center; margin: 4px 0 0; }
+.quick { display: flex; flex-wrap: wrap; gap: 8px; }
+.quick .btn { flex: 1 0 auto; min-width: 84px; }
+.walk-list { display: grid; gap: 6px; }
+.walk-row { display: flex; align-items: center; gap: 12px; background: var(--card); border-radius: 12px; padding: 6px 6px 6px 14px; }
+.walk-row span { flex: 1; color: var(--muted); }
+.small-x { width: 36px; height: 36px; font-size: .9rem; background: var(--bg); }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; background: var(--card); border-radius: var(--radius); padding: 12px 10px; box-shadow: var(--shadow); }
+.wk { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: .8rem; }
+.wk-bar { position: relative; width: 100%; max-width: 30px; height: 110px; background: var(--bg); border-radius: 8px; overflow: hidden; }
+.wk-bar span { position: absolute; left: 0; right: 0; bottom: 0; background: var(--fig-far); border-radius: 8px 8px 0 0; }
+.wk.hit .wk-bar span { background: var(--brand-2); }
+.wk-bar i { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--muted); }
+.wk small { color: var(--muted); }
+.toggle .num-in, .num-in { margin-left: auto; width: 90px; height: auto; flex: none; font: 600 1.05rem system-ui, sans-serif; padding: 8px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); }
+.cal.walked { position: relative; }
+.cal.walked::after { content: ""; position: absolute; bottom: 4px; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+.walk-line { color: var(--brand-2) !important; font-weight: 600; }
+.stats { flex-wrap: wrap; }
+.stats div { min-width: 40%; }
+.tabs a { font-size: .7rem; min-width: 0; }
+@media (min-width: 600px) {
+  .walk-main { grid-template-columns: 1fr 1fr; align-items: center; gap: 28px; }
+  .walk-demo { max-height: 56vh; max-width: none; }
+  .walk-card .walk-fig { width: 130px; height: 130px; }
+  .stats div { min-width: 0; }
+}

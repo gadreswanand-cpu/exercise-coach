@@ -22,10 +22,12 @@
     save();
   }
   function unmark(id) { const t = store.log[dayKey()]; if (t) { delete t[id]; if (!Object.keys(t).length) delete store.log[dayKey()]; save(); } }
+  // a day counts as active if any exercise was done or any walking was logged
+  const active = k => !!store.log[k] || !!((store.walk || {})[k] || []).length;
   function streak() {
     let n = 0; const d = new Date();
-    if (!store.log[dayKey(d)]) d.setDate(d.getDate() - 1); // today not started yet: count from yesterday
-    while (store.log[dayKey(d)]) { n++; d.setDate(d.getDate() - 1); }
+    if (!active(dayKey(d))) d.setDate(d.getDate() - 1); // today not started yet: count from yesterday
+    while (active(dayKey(d))) { n++; d.setDate(d.getDate() - 1); }
     return n;
   }
 
@@ -95,6 +97,7 @@
         </div>
         ${ring(done, plan.length)}
       </header>
+      ${walkCard()}
       <h2 class="section">Choose a body area</h2>
       <div class="areas">
         ${AREAS.map(a => {
@@ -110,6 +113,7 @@
       <p class="note">These exercises are general examples. Follow your doctor's or physiotherapist's advice, and stop any exercise that causes sharp pain.</p>
       <p class="center"><a href="#/settings" class="link">⚙️ Settings & my plan</a></p>`;
     view.querySelectorAll(".area-fig").forEach(el => thumb(el, BY_ID[el.dataset.ex]));
+    const wf = new Figure($("#walkFig"), WALKER, { autoplay: !!(store.walkRun && !store.walkRun.pausedAt) }); figures.push(wf);
   }
 
   function exerciseRow(ex, area, selected) {
@@ -338,9 +342,129 @@
     session = null;
   }
 
+  /* ---------------- walking ---------------- */
+  // walking minutes are saved per day: store.walk["2026-11-06"] = [{ min, at }]
+  const walkTarget = () => store.walkTarget || 30;
+  const walkMin = (k = dayKey()) => ((store.walk || {})[k] || []).reduce((n, w) => n + w.min, 0);
+  function addWalk(min, at = Date.now()) {
+    if (!(min > 0)) return;
+    const k = dayKey(new Date(at));
+    store.walk = store.walk || {};
+    (store.walk[k] = store.walk[k] || []).push({ min: Math.round(min), at });
+    save();
+  }
+  // a running walk survives the app being closed: we keep the start time, not a ticking counter
+  function walkElapsed() {
+    const r = store.walkRun; if (!r) return 0;
+    return Math.max(0, (r.pausedAt || Date.now()) - r.start - (r.paused || 0));
+  }
+  const fmtClock = ms => { const s = Math.floor(ms / 1000); const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const ss = String(s % 60).padStart(2, "0"); return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`; };
+  const WALKER = {
+    id: "walk", name: "Walking", view: "side", ground: true, linear: true, props: [],
+    base: { x: 100, y: 105, torso: 182, neck: 182 },
+    frames: [
+      { p: { th: 24, sh: 6, ft: 104, th2: -18, sh2: -32, ft2: 58, ua: -20, fa: -6, ua2: 20, fa2: 40 }, t: 0.32 },
+      { p: { th: 0, sh: 0, ft: 90, th2: 12, sh2: -38, ft2: 50, ua: 0, fa: 8, ua2: 0, fa2: 8 }, t: 0.32 },
+      { p: { th: -18, sh: -32, ft: 58, th2: 24, sh2: 6, ft2: 104, ua: 20, fa: 40, ua2: -20, fa2: -6 }, t: 0.32 },
+      { p: { th: 12, sh: -38, ft: 50, th2: 0, sh2: 0, ft2: 90, ua: 0, fa: 8, ua2: 0, fa2: 8 }, t: 0.32 },
+    ],
+  };
+  function walkCard() {
+    const m = walkMin(), t = walkTarget(), run = store.walkRun;
+    return `<a class="walk-card ${m >= t ? "complete" : ""}" href="#/walk">
+      <div class="walk-fig" id="walkFig"></div>
+      <div class="area-txt"><h3>🚶 Walking</h3>
+        <p class="muted">${run ? `<b class="live">● ${run.pausedAt ? "Paused" : "Walking now"} · ${fmtClock(walkElapsed())}</b>` : m >= t ? "Target reached today 🎉" : `Target ${t} minutes a day`}</p>
+        <div class="bar"><span style="width:${Math.min(100, (100 * m) / t)}%"></span></div>
+        <p class="small">${m} of ${t} min today</p></div></a>`;
+  }
+  let walkTimer = null, walkFig = null;
+  function renderWalk() {
+    const t = walkTarget();
+    const week = [];
+    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); week.push({ d, k: dayKey(d), m: walkMin(dayKey(d)) }); }
+    const hit = week.filter(w => w.m >= t).length;
+    const maxM = Math.max(t, ...week.map(w => w.m));
+    const todays = (store.walk || {})[dayKey()] || [];
+    view.innerHTML = `
+      <div class="walk">
+        <header class="page-h"><h1>Walking</h1><p class="muted">Daily target: ${t} minutes</p></header>
+        <div class="walk-main">
+          <div class="demo walk-demo" id="wDemo"></div>
+          <div class="walk-side">
+            <div class="walk-clock" id="wClock">${fmtClock(walkElapsed())}</div>
+            <p class="cue" id="wCue"></p>
+            <div class="actions walk-btns" id="wBtns"></div>
+            <div class="walk-today">
+              <div class="bar big"><span id="wBar"></span></div>
+              <p><b id="wToday"></b> <span class="muted">of ${t} min today</span></p>
+            </div>
+          </div>
+        </div>
+        <h2 class="section">Walked without the app?</h2>
+        <div class="quick">${[5, 10, 15, 20, 30].map(n => `<button class="btn" data-add="${n}">+${n} min</button>`).join("")}</div>
+        ${todays.length ? `<h2 class="section">Today's walks</h2><div class="walk-list">${todays.map((w, i) => `<div class="walk-row"><span>${new Date(w.at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span><b>${w.min} min</b><button class="icon-btn small-x" data-del="${i}" aria-label="Remove this walk">✕</button></div>`).join("")}</div>` : ""}
+        <h2 class="section">Last 7 days · target hit ${hit} of 7</h2>
+        <div class="week">
+          ${week.map(w => `<div class="wk ${w.m >= t ? "hit" : ""}"><div class="wk-bar"><span style="height:${(100 * w.m) / maxM}%"></span><i style="bottom:${(100 * t) / maxM}%"></i></div><b>${w.m}</b><small>${w.d.toLocaleDateString(undefined, { weekday: "narrow" })}</small></div>`).join("")}
+        </div>
+        <label class="toggle">Daily target (minutes)<input type="number" min="5" max="240" step="5" id="wTarget" value="${t}" class="num-in"></label>
+        <p class="note">Walk at a comfortable, steady pace on flat ground. Wear supportive shoes, and slow down or stop if your knee or back hurts. You can split the ${t} minutes into shorter walks; they all add up.</p>
+      </div>`;
+    walkFig = new Figure($("#wDemo"), WALKER, { autoplay: false });
+    figures.push(walkFig);
+    view.querySelectorAll("[data-add]").forEach(b => b.onclick = () => { const before = walkMin(); addWalk(+b.dataset.add); toast(`Added ${b.dataset.add} minutes`); if (before < t && walkMin() >= t) celebrate(); renderWalk(); });
+    view.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { todays.splice(+b.dataset.del, 1); if (!todays.length) delete store.walk[dayKey()]; save(); toast("Removed"); renderWalk(); });
+    $("#wTarget").onchange = e => { store.walkTarget = Math.min(240, Math.max(5, parseInt(e.target.value, 10) || 30)); save(); renderWalk(); };
+    drawWalkState();
+  }
+  function celebrate() { beep(988, 200); speak(`Well done! You've walked ${walkTarget()} minutes today.`); toast("Daily walking target reached 🎉"); }
+  function drawWalkState() {
+    clearInterval(walkTimer);
+    const run = store.walkRun, t = walkTarget();
+    const btns = $("#wBtns"); if (!btns) return;
+    btns.innerHTML = !run ? `<button class="btn primary big-btn" id="wStart">▶ Start walk</button>`
+      : `<button class="btn big-btn" id="wPause">${run.pausedAt ? "▶ Resume" : "❚❚ Pause"}</button><button class="btn primary big-btn" id="wStop">■ Finish</button>`;
+    if (!run) $("#wStart").onclick = () => { store.walkRun = { start: Date.now(), paused: 0, pausedAt: null }; save(); speak("Walk started. Enjoy your walk."); keepWalkAwake(true); drawWalkState(); };
+    else {
+      $("#wPause").onclick = () => {
+        const r = store.walkRun;
+        if (r.pausedAt) { r.paused += Date.now() - r.pausedAt; r.pausedAt = null; } else r.pausedAt = Date.now();
+        save(); drawWalkState();
+      };
+      $("#wStop").onclick = () => {
+        const ms = walkElapsed(), before = walkMin();
+        store.walkRun = null; save(); keepWalkAwake(false);
+        const min = Math.round(ms / 60000);
+        if (min >= 1) { addWalk(Math.min(min, 240)); toast(`Saved a ${min} minute walk`); if (before < t && walkMin() >= t) celebrate(); }
+        else toast("Walk was under a minute, so it wasn't saved");
+        renderWalk();
+      };
+    }
+    const tick = () => {
+      const r = store.walkRun, live = r ? Math.floor(walkElapsed() / 60000) : 0;
+      const total = walkMin() + live;
+      $("#wClock").textContent = fmtClock(walkElapsed());
+      $("#wToday").textContent = total + " min";
+      $("#wBar").style.width = Math.min(100, (100 * total) / t) + "%";
+      $("#wCue").textContent = !r ? (walkMin() >= t ? "Target reached today 🎉" : `${t - walkMin()} min to go today`) : r.pausedAt ? "Paused" : total >= t ? "Target reached, keep going if you like!" : `${t - total} min to go`;
+      if (r && !r.pausedAt && !r.told && total >= t && walkMin() < t) { r.told = true; save(); celebrate(); }
+    };
+    tick();
+    if (run && !run.pausedAt) { walkFig && walkFig.play(); walkTimer = setInterval(() => { if (!$("#wClock")) return clearInterval(walkTimer); tick(); }, 1000); }
+    else if (walkFig) walkFig.pause();
+  }
+  let walkLock = null;
+  async function keepWalkAwake(on) {
+    try {
+      if (on && "wakeLock" in navigator && !walkLock) walkLock = await navigator.wakeLock.request("screen");
+      if (!on && walkLock) { walkLock.release(); walkLock = null; }
+    } catch (e) { /* not supported */ }
+  }
+
   /* ---------------- progress ---------------- */
   function renderProgress() {
-    const days = Object.keys(store.log).sort();
+    const days = [...new Set(Object.keys(store.log).concat(Object.keys(store.walk || {})))].sort();
     const weeks = 6, start = new Date();
     start.setDate(start.getDate() - start.getDay() - 7 * (weeks - 1));
     let cells = "";
@@ -349,7 +473,8 @@
       const k = dayKey(d), n = store.log[k] ? Object.keys(store.log[k]).length : 0;
       const lvl = n === 0 ? 0 : n < 4 ? 1 : n < 8 ? 2 : 3;
       const future = d > new Date();
-      cells += `<span class="cal l${lvl} ${k === dayKey() ? "today" : ""} ${future ? "future" : ""}" title="${k}: ${n} exercises">${d.getDate()}</span>`;
+      const wm = walkMin(k);
+      cells += `<span class="cal l${lvl} ${k === dayKey() ? "today" : ""} ${future ? "future" : ""} ${wm >= walkTarget() ? "walked" : ""}" title="${k}: ${n} exercises, ${wm} min walking">${d.getDate()}</span>`;
     }
     const recent = days.slice(-10).reverse();
     const feelIcon = { easy: "😊", ok: "🙂", pain: "😣" };
@@ -358,16 +483,18 @@
       <div class="stats">
         <div><b>${streak()}</b><span>day streak</span></div>
         <div><b>${days.length}</b><span>active days</span></div>
-        <div><b>${days.reduce((n, k) => n + Object.keys(store.log[k]).length, 0)}</b><span>exercises done</span></div>
+        <div><b>${days.reduce((n, k) => n + Object.keys(store.log[k] || {}).length, 0)}</b><span>exercises done</span></div>
+        <div><b>${days.reduce((n, k) => n + walkMin(k), 0)}</b><span>minutes walked</span></div>
       </div>
       <h2 class="section">Last ${weeks} weeks</h2>
       <div class="cal-head">${["S", "M", "T", "W", "T", "F", "S"].map(x => `<span>${x}</span>`).join("")}</div>
       <div class="calendar">${cells}</div>
       <h2 class="section">Recent days</h2>
       ${recent.length ? recent.map(k => `<div class="day"><b>${new Date(k + "T12:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}</b>
-        <p>${Object.entries(store.log[k]).map(([id, v]) => `${esc(BY_ID[id] ? BY_ID[id].name : id)}${v.feel ? " " + feelIcon[v.feel] : ""}`).join(", ")}</p></div>`).join("")
+        ${walkMin(k) ? `<p class="walk-line">🚶 ${walkMin(k)} min walking${walkMin(k) >= walkTarget() ? " ✓" : ""}</p>` : ""}
+        <p>${Object.entries(store.log[k] || {}).map(([id, v]) => `${esc(BY_ID[id] ? BY_ID[id].name : id)}${v.feel ? " " + feelIcon[v.feel] : ""}`).join(", ")}</p></div>`).join("")
         : '<p class="muted">Nothing yet. Your completed exercises will appear here.</p>'}
-      <p class="small muted">😣 marks show exercises that felt painful, which is useful to mention to your doctor.</p>`;
+      <p class="small muted">A green dot under a date means you hit your walking target that day. 😣 marks show exercises that felt painful, which is useful to mention to your doctor.</p>`;
   }
 
   /* ---------------- settings ---------------- */
@@ -404,6 +531,7 @@
     if (parts[0] === "area") { tab = parts[1]; renderArea(parts[1], parts[2]); }
     else if (parts[0] === "go") { tab = ""; startSession(parts[1], from); }
     else if (parts[0] === "progress") { tab = "progress"; renderProgress(); }
+    else if (parts[0] === "walk") { tab = "walk"; renderWalk(); }
     else if (parts[0] === "settings") { tab = ""; renderSettings(); }
     else renderToday();
     document.body.classList.toggle("in-guided", parts[0] === "go");
@@ -414,7 +542,11 @@
   // re-layout when the phone is folded or unfolded
   let lastWide = wide();
   window.addEventListener("resize", () => { if (wide() !== lastWide && !session) { lastWide = wide(); route(); } });
-  document.addEventListener("visibilitychange", () => { if (session && document.visibilityState === "visible") keepAwake(true); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (session) keepAwake(true);
+    if (store.walkRun && !store.walkRun.pausedAt && location.hash.startsWith("#/walk")) { walkLock = null; keepWalkAwake(true); }
+  });
   route();
 
   if ("serviceWorker" in navigator) {
